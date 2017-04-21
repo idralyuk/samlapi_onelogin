@@ -1,0 +1,6 @@
+# ignore pyc files
+*.pyc
+# ignore my settings file
+settings.ini
+# ignore emacs backup files
+*~
