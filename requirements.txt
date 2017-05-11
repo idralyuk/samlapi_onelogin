@@ -1,0 +1,5 @@
+boto3
+python-dateutil
+requests
+BeautifulSoup
+Bs4
