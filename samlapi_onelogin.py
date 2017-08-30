@@ -1,22 +1,22 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
 import sys
 import os
 import boto3
 import requests
 import getpass
-import ConfigParser
+import configparser
 import base64
 import logging
 import xml.etree.ElementTree as ET
 import re
 from bs4 import BeautifulSoup
 from os.path import expanduser
-from urlparse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 ##########################################################################
 # Variables
-Config = ConfigParser.ConfigParser()
+Config = configparser.ConfigParser()
 Config.read(os.path.join(os.path.abspath(os.path.dirname(__file__)),'settings.ini'))
 
 # The default AWS region to be used
@@ -47,14 +47,14 @@ sslverification = True
 
 # Get the credentials from the user
 if not email:
-    print "Email: ",
+    print("Email: "),
     email = raw_input()
 else:
-    print "Using: %s" % email
+    print("Using: {0}".format(email))
 password = getpass.getpass()
-print "OTP Code (MFA): ",
-otp_code = raw_input()
-print ''
+print("OTP Code (MFA): "),
+otp_code = input()
+print('')
 
 # Initiate session handler
 session = requests.Session()
@@ -100,7 +100,7 @@ parsed = BeautifulSoup(onelogin_session.text, 'html.parser')
 saml_element = parsed.find('input', {'name':'SAMLResponse'})
 
 if not saml_element:
-    raise StandardError, 'Could not get a SAML reponse, check credentials.'
+    raise StandardError('Could not get a SAML reponse, check credentials.')
 
 saml = saml_element['value']
 
@@ -133,16 +133,16 @@ for awsrole in awsroles:
 # If there's more than one role, ask the user to pick one; otherwise proceed
 if len(awsroles) > 1:
     i = 0
-    print "Please choose the role you would like to assume:"
+    print("Please choose the role you would like to assume:")
     for awsrole in awsroles:
-        print ' [', i, ']: ', awsrole.split(',')[0]
+        print(' [', i, ']: '), awsrole.split(',')[0]
         i += 1
-    print "Selection: ",
-    selectedroleindex = raw_input()
+    print("Selection: "),
+    selectedroleindex = input()
 
     # Basic sanity check of input
     if int(selectedroleindex) > (len(awsroles) - 1):
-        print 'You selected an invalid role index, please try again'
+        print('You selected an invalid role index, please try again')
         sys.exit(0)
 
     role_arn = awsroles[int(selectedroleindex)].split(',')[0]
@@ -165,7 +165,7 @@ home = expanduser("~")
 filename = home + awsconfigfile
 
 # Read in the existing config file
-config = ConfigParser.RawConfigParser()
+config = configparser.RawConfigParser()
 config.read(filename)
 
 # Put the creds into a saml-specific profile instead of clobbering other creds
@@ -186,10 +186,10 @@ with open(filename, 'w+') as configfile:
     config.write(configfile)
 
 # Give the user some basic info as to what has just happened
-print '\n\n-------------------------------------------------------------------'
-print 'Your new access key pair has been stored in the AWS configuration file:'
-print '    {0} (under the saml profile).'.format(filename)
-print 'Note that it will expire at {0}.'.format(aws_exp)
-print 'To use this credential, call the AWS CLI with the --profile option'
-print '    (e.g. aws --profile saml ec2 describe-instances).'
-print '-------------------------------------------------------------------\n\n'
+print('\n\n-------------------------------------------------------------------')
+print('Your new access key pair has been stored in the AWS configuration file:')
+print('    {0} (under the saml profile).'.format(filename))
+print('Note that it will expire at {0}.'.format(aws_exp))
+print('To use this credential, call the AWS CLI with the --profile option')
+print('    (e.g. aws --profile saml ec2 describe-instances).')
+print('-------------------------------------------------------------------\n\n')
