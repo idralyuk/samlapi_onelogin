@@ -135,7 +135,7 @@ if len(awsroles) > 1:
     i = 0
     print("Please choose the role you would like to assume:")
     for awsrole in awsroles:
-        print(' [', i, ']: '), awsrole.split(',')[0]
+        print(' [', i, ']: ', awsrole.split(',')[0])
         i += 1
     print("Selection: "),
     selectedroleindex = input()
