@@ -33,10 +33,10 @@ awsconfigfile = Config.get('Settings', 'awsconfigfile')
 idpentryurl = Config.get('Settings', 'URL')
 
 # If only using locally/for yourself, you can hardcode your login email
-if Config.has_option('Settings', 'Email'):
-    email = Config.get('Settings', 'Email')
-else:
-    email = None
+email = Config.get('Settings', 'Email') if Config.has_option('Settings', 'Email') else None
+
+# The duration, in seconds, of the role session
+durationseconds = int(Config.get('Settings', 'DurationSeconds')) if Config.has_option('Settings', 'DurationSeconds') and Config.get('Settings', 'DurationSeconds').isdigit() else 3600
 
 # False should only be used for dev/test
 sslverification = True
@@ -145,15 +145,15 @@ if len(awsroles) > 1:
         print 'You selected an invalid role index, please try again'
         sys.exit(0)
 
-    role_arn = awsroles[int(selectedroleindex)].split(',')[0]
-    principal_arn = awsroles[int(selectedroleindex)].split(',')[1]
+    role = awsroles[int(selectedroleindex)].split(',')
 else:
-    role_arn = awsroles[0].split(',')[0]
-    principal_arn = awsroles[0].split(',')[1]
+    role = awsroles[0].split(',')
+role_arn = role[0]
+principal_arn = role[1]
 
 # Use the assertion to get an AWS STS token using Assume Role with SAML
 stsclient = boto3.client('sts')
-token = stsclient.assume_role_with_saml(RoleArn=role_arn, PrincipalArn=principal_arn, SAMLAssertion=saml)
+token = stsclient.assume_role_with_saml(RoleArn=role_arn, PrincipalArn=principal_arn, SAMLAssertion=saml, DurationSeconds=durationseconds)
 creds = token['Credentials']
 aws_key = creds['AccessKeyId']
 aws_sec = creds['SecretAccessKey']
