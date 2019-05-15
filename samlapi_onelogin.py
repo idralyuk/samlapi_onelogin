@@ -41,6 +41,13 @@ durationseconds = int(Config.get('Settings', 'DurationSeconds')) if Config.has_o
 # False should only be used for dev/test
 sslverification = True
 
+# Account Name and ID details loaded from setting file
+accountDict = {}
+accountDetails= Config.get('Settings', 'AccountNameId').split(",")
+for accountDetail in accountDetails:
+ accountDict[accountDetail.split("::")[1]] = accountDetail.split("::")[0]
+
+
 # Uncomment to enable low level debugging
 # logging.basicConfig(level=logging.DEBUG)
 ##########################################################################
@@ -135,7 +142,8 @@ if len(awsroles) > 1:
     i = 0
     print "Please choose the role you would like to assume:"
     for awsrole in awsroles:
-        print ' [', i, ']: ', awsrole.split(',')[0]
+        accountId=awsrole.split(',')[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
+        print ' [', i, ']: ', accountDict.get(accountId)
         i += 1
     print "Selection: ",
     selectedroleindex = raw_input()
