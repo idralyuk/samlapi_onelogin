@@ -144,7 +144,7 @@ if len(awsroles) > 1:
     for awsrole in awsroles:
         role = awsrole.split(',')[0].split('/')[1]
         accountId=awsrole.split(',')[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
-        print ' [{}]: {} ({})'.format(i, accountDict.get(accountId), role)
+        print ' [{}]: {} {} ({})'.format(i, accountId, accountDict.get(accountId), role)
         i += 1
     print "Selection: ",
     selectedroleindex = raw_input()
