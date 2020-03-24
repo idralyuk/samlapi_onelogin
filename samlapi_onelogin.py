@@ -190,6 +190,20 @@ config.set('saml', 'aws_session_token', aws_tok)
 # boto is special, see https://github.com/boto/boto/issues/2988
 config.set('saml', 'aws_security_token', aws_tok)
 
+# Put the creds into the default profile
+if not config.defaults():
+    config.set(ConfigParser.DEFAULTSECT, 'defaults_script', 'samlapi_onelogin.py')
+
+if config.defaults()['defaults_script'] == 'samlapi_onelogin.py':
+    config.set(ConfigParser.DEFAULTSECT, 'output', outputformat)
+    config.set(ConfigParser.DEFAULTSECT, 'region', region)
+    config.set(ConfigParser.DEFAULTSECT, 'aws_access_key_id', aws_key)
+    config.set(ConfigParser.DEFAULTSECT, 'aws_secret_access_key', aws_sec)
+    config.set(ConfigParser.DEFAULTSECT, 'aws_session_token', aws_tok)
+
+    # boto is special, see https://github.com/boto/boto/issues/2988
+    config.set(ConfigParser.DEFAULTSECT, 'aws_security_token', aws_tok)
+
 # Write the updated config file
 with open(filename, 'w+') as configfile:
     config.write(configfile)
