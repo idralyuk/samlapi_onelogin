@@ -16,6 +16,7 @@ from urlparse import urlparse, urlunparse
 
 ##########################################################################
 # Variables
+ConfigParser.DEFAULTSECT = 'default'
 Config = ConfigParser.ConfigParser()
 Config.read(os.path.join(os.path.abspath(os.path.dirname(__file__)),'settings.ini'))
 
@@ -192,11 +193,9 @@ config.set('saml', 'aws_security_token', aws_tok)
 
 # Put the creds into the default profile
 if not config.defaults():
-    ConfigParser.DEFAULTSECT = 'default'
     config.set(ConfigParser.DEFAULTSECT, 'defaults_script', 'samlapi_onelogin.py')
 
 if config.defaults()['defaults_script'] == 'samlapi_onelogin.py':
-    ConfigParser.DEFAULTSECT = 'default'
     config.set(ConfigParser.DEFAULTSECT, 'output', outputformat)
     config.set(ConfigParser.DEFAULTSECT, 'region', region)
     config.set(ConfigParser.DEFAULTSECT, 'aws_access_key_id', aws_key)
