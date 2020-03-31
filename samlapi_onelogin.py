@@ -14,6 +14,8 @@ from bs4 import BeautifulSoup
 from os.path import expanduser
 from urlparse import urlparse, urlunparse
 
+from onelogin.api.client import OneLoginClient
+
 ##########################################################################
 # Variables
 ConfigParser.DEFAULTSECT = 'default'
@@ -23,6 +25,21 @@ Config.read(os.path.join(os.path.abspath(os.path.dirname(__file__)),'settings.in
 # The default AWS region to be used
 region = Config.get('Settings', 'region')
 
+# OneLogin Client ID
+onelogin_client_id = Config.get('Settings', 'onelogin_client_id')
+
+# OneLogin Client Secret
+onelogin_client_secret = Config.get('Settings', 'onelogin_client_secret')
+
+# OneLogin Region
+onelogin_region = Config.get('Settings', 'onelogin_region')
+
+# onelogin subdomain
+onelogin_subdomain = Config.get('Settings', 'onelogin_subdomain')
+
+# app id
+app_id = Config.get('Settings', 'onelogin_appid')
+
 # The AWS CLI output format that will be configured in the
 # saml profile (affects subsequent CLI calls)
 outputformat = Config.get('Settings', 'outputformat')
@@ -30,11 +47,14 @@ outputformat = Config.get('Settings', 'outputformat')
 # The file where this script will store the STS credentials
 awsconfigfile = Config.get('Settings', 'awsconfigfile')
 
-# The initial url that starts the authentication process
-idpentryurl = Config.get('Settings', 'URL')
-
 # If only using locally/for yourself, you can hardcode your login email
 email = Config.get('Settings', 'Email') if Config.has_option('Settings', 'Email') else None
+
+# Account Name and ID details loaded from setting file
+account_dict = {}
+account_details= Config.get('Settings', 'AccountNameId').split(",")
+for account_detail in account_details:
+ account_dict[account_detail.split("::")[1]] = account_detail.split("::")[0]
 
 # The duration, in seconds, of the role session
 durationseconds = int(Config.get('Settings', 'DurationSeconds')) if Config.has_option('Settings', 'DurationSeconds') and Config.get('Settings', 'DurationSeconds').isdigit() else 3600
@@ -64,53 +84,30 @@ print "OTP Code (MFA): ",
 otp_code = raw_input()
 print ''
 
-# Initiate session handler
-session = requests.Session()
-# Configure Session Headers
-session.headers['User-Agent'] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.12; rv:52.0) Gecko/20100101 AWS Login/1.0"
+client = OneLoginClient(onelogin_client_id, onelogin_client_secret, onelogin_region)
 
-# Initial Page load
-onelogin_session = session.get(idpentryurl)
-onelogin_session.raise_for_status()
-session.headers['Referer'] = onelogin_session.url
+onelogin_response = client.get_saml_assertion(email, password, app_id, onelogin_subdomain)
 
-# Collect information from the page source
-decoded = BeautifulSoup(onelogin_session.text, 'html.parser')
-auth_token = decoded.find('input', {'id': 'auth_token'}).get('value')
-action = decoded.find('form', {'id': 'login-form'}).get('action')
+saml = None
 
-# Setup the payload
-payload = {
-    'authenticity_token': auth_token,
-    'email': email,
-    'password': password,
-    'otp_token_1': otp_code,
-    'commit': 'Log in',
-}
+if onelogin_response is None:
+    print('Failed logging in (password was incorrect)')
+    exit(1)
+elif onelogin_response and onelogin_response.type == "success":
+    state_token = onelogin_response.mfa.state_token
+    device_id = onelogin_response.mfa.devices[0].id
+    mfa_response = client.get_saml_assertion_verifying(app_id, device_id, state_token, otp_code, do_not_notify=True)
 
-parsedurl = urlparse(idpentryurl)
-login_url = parsedurl.scheme + "://" + parsedurl.netloc + action
+    if mfa_response is None:
+        print('Failed logging in (OTP code)')
+        exit(1)
+    
+    saml = mfa_response.saml_response
+else:
+    saml = onelogin_response.saml_response
 
-# POST to login page
-onelogin_session.headers['Referrer'] = onelogin_session.url
-onelogin_session = session.post(login_url, data=payload)
-onelogin_session.raise_for_status()
 
-# Submit again with OTP, but only if OTP was provided
-if otp_code:
-    onelogin_session = session.post(login_url, data=payload)
-    onelogin_session.raise_for_status()
-
-# Debug the response if needed
-# print (onelogin_session.text)
-
-parsed = BeautifulSoup(onelogin_session.text, 'html.parser')
-saml_element = parsed.find('input', {'name':'SAMLResponse'})
-
-if not saml_element:
-    raise StandardError, 'Could not get a SAML reponse, check credentials.'
-
-saml = saml_element['value']
+print('Login successful')
 
 # Overwrite and delete the credential variables, just for safety
 username = '#################################################'
@@ -143,9 +140,8 @@ if len(awsroles) > 1:
     i = 0
     print "Please choose the role you would like to assume:"
     for awsrole in awsroles:
-        role = awsrole.split(',')[0].split('/')[1]
-        accountId=awsrole.split(',')[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
-        print ' [{}]: {} {} ({})'.format(i, accountId, accountDict.get(accountId), role)
+        account_id=awsrole.split(',')[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
+        print ' [{}]:\t{}\t{}'.format(i, account_dict.get(account_id), awsrole.split(',')[0])
         i += 1
     print "Selection: ",
     selectedroleindex = raw_input()
@@ -178,32 +174,14 @@ filename = home + awsconfigfile
 config = ConfigParser.RawConfigParser()
 config.read(filename)
 
-# Put the creds into a saml-specific profile instead of clobbering other creds
-if not config.has_section('saml'):
-    config.add_section('saml')
-
-config.set('saml', 'output', outputformat)
-config.set('saml', 'region', region)
-config.set('saml', 'aws_access_key_id', aws_key)
-config.set('saml', 'aws_secret_access_key', aws_sec)
-config.set('saml', 'aws_session_token', aws_tok)
+config.set('default', 'output', outputformat)
+config.set('default', 'region', region)
+config.set('default', 'aws_access_key_id', aws_key)
+config.set('default', 'aws_secret_access_key', aws_sec)
+config.set('default', 'aws_session_token', aws_tok)
 
 # boto is special, see https://github.com/boto/boto/issues/2988
-config.set('saml', 'aws_security_token', aws_tok)
-
-# Put the creds into the default profile
-if not config.defaults():
-    config.set(ConfigParser.DEFAULTSECT, 'defaults_script', 'samlapi_onelogin.py')
-
-if config.defaults()['defaults_script'] == 'samlapi_onelogin.py':
-    config.set(ConfigParser.DEFAULTSECT, 'output', outputformat)
-    config.set(ConfigParser.DEFAULTSECT, 'region', region)
-    config.set(ConfigParser.DEFAULTSECT, 'aws_access_key_id', aws_key)
-    config.set(ConfigParser.DEFAULTSECT, 'aws_secret_access_key', aws_sec)
-    config.set(ConfigParser.DEFAULTSECT, 'aws_session_token', aws_tok)
-
-    # boto is special, see https://github.com/boto/boto/issues/2988
-    config.set(ConfigParser.DEFAULTSECT, 'aws_security_token', aws_tok)
+config.set('default', 'aws_security_token', aws_tok)
 
 # Write the updated config file
 with open(filename, 'w+') as configfile:
@@ -215,5 +193,5 @@ print 'Your new access key pair has been stored in the AWS configuration file:'
 print '    {0} (under the saml profile).'.format(filename)
 print 'Note that it will expire at {0}.'.format(aws_exp)
 print 'To use this credential, call the AWS CLI with the --profile option'
-print '    (e.g. aws --profile saml ec2 describe-instances).'
+print '    (e.g. aws ec2 describe-instances).'
 print '-------------------------------------------------------------------\n\n'

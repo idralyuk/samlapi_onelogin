@@ -1,4 +1,5 @@
 boto3
+onelogin
 python-dateutil
 requests
 BeautifulSoup
