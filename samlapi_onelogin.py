@@ -174,14 +174,14 @@ filename = home + awsconfigfile
 config = ConfigParser.RawConfigParser()
 config.read(filename)
 
-config.set('default', 'output', outputformat)
-config.set('default', 'region', region)
-config.set('default', 'aws_access_key_id', aws_key)
-config.set('default', 'aws_secret_access_key', aws_sec)
-config.set('default', 'aws_session_token', aws_tok)
+config.set('saml', 'output', outputformat)
+config.set('saml', 'region', region)
+config.set('saml', 'aws_access_key_id', aws_key)
+config.set('saml', 'aws_secret_access_key', aws_sec)
+config.set('saml', 'aws_session_token', aws_tok)
 
 # boto is special, see https://github.com/boto/boto/issues/2988
-config.set('default', 'aws_security_token', aws_tok)
+config.set('saml', 'aws_security_token', aws_tok)
 
 # Write the updated config file
 with open(filename, 'w+') as configfile:
