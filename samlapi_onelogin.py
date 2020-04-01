@@ -174,6 +174,9 @@ filename = home + awsconfigfile
 config = ConfigParser.RawConfigParser()
 config.read(filename)
 
+if not config.has_section('saml'):
+    config.add_section('saml')
+
 config.set('saml', 'output', outputformat)
 config.set('saml', 'region', region)
 config.set('saml', 'aws_access_key_id', aws_key)
