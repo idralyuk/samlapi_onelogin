@@ -50,7 +50,7 @@ awsconfigfile = Config.get('Settings', 'awsconfigfile')
 # If only using locally/for yourself, you can hardcode your login email
 email = Config.get('Settings', 'Email') if Config.has_option('Settings', 'Email') else None
 
-# If only using locally/for yourself, you can hardcode your login email
+# If only using locally/for yourself, you can hardcode your preferred profile
 aws_profile = Config.get('Settings', 'aws_profile') if Config.has_option('Settings', 'aws_profile') else 'saml'
 
 # Account Name and ID details loaded from setting file
