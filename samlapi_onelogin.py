@@ -50,6 +50,9 @@ awsconfigfile = Config.get('Settings', 'awsconfigfile')
 # If only using locally/for yourself, you can hardcode your login email
 email = Config.get('Settings', 'Email') if Config.has_option('Settings', 'Email') else None
 
+# If only using locally/for yourself, you can hardcode your preferred profile
+aws_profile = Config.get('Settings', 'aws_profile') if Config.has_option('Settings', 'aws_profile') else 'saml'
+
 # Account Name and ID details loaded from setting file
 account_dict = {}
 account_details= Config.get('Settings', 'AccountNameId').split(",")
@@ -174,17 +177,17 @@ filename = home + awsconfigfile
 config = ConfigParser.RawConfigParser()
 config.read(filename)
 
-if not config.has_section('saml'):
-    config.add_section('saml')
+if not config.has_section(aws_profile):
+    config.add_section(aws_profile)
 
-config.set('saml', 'output', outputformat)
-config.set('saml', 'region', region)
-config.set('saml', 'aws_access_key_id', aws_key)
-config.set('saml', 'aws_secret_access_key', aws_sec)
-config.set('saml', 'aws_session_token', aws_tok)
+config.set(aws_profile, 'output', outputformat)
+config.set(aws_profile, 'region', region)
+config.set(aws_profile, 'aws_access_key_id', aws_key)
+config.set(aws_profile, 'aws_secret_access_key', aws_sec)
+config.set(aws_profile, 'aws_session_token', aws_tok)
 
 # boto is special, see https://github.com/boto/boto/issues/2988
-config.set('saml', 'aws_security_token', aws_tok)
+config.set(aws_profile, 'aws_security_token', aws_tok)
 
 if not config.defaults():
     config.set(ConfigParser.DEFAULTSECT, 'defaults_script', 'samlapi_onelogin.py')
@@ -206,7 +209,7 @@ with open(filename, 'w+') as configfile:
 # Give the user some basic info as to what has just happened
 print '\n\n-------------------------------------------------------------------'
 print 'Your new access key pair has been stored in the AWS configuration file:'
-print '    {0} (under the saml profile).'.format(filename)
+print '    {0} (under the {1} profile).'.format(filename, aws_profile)
 print 'Note that it will expire at {0}.'.format(aws_exp)
 print 'To use this credential, call the AWS CLI with the --profile option'
 print '    (e.g. aws ec2 describe-instances).'
