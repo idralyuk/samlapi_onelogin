@@ -177,7 +177,7 @@ filename = home + awsconfigfile
 config = ConfigParser.RawConfigParser()
 config.read(filename)
 
-if not config.has_section(aws_profile):
+if aws_profile.lower() != ConfigParser.DEFAULTSECT.lower() and not config.has_section(aws_profile):
     config.add_section(aws_profile)
 
 config.set(aws_profile, 'output', outputformat)
