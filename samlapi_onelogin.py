@@ -5,21 +5,22 @@ import os
 import boto3
 import requests
 import getpass
-import ConfigParser
+from configparser import ConfigParser
+from configparser import RawConfigParser
 import base64
 import logging
 import xml.etree.ElementTree as ET
 import re
 from bs4 import BeautifulSoup
 from os.path import expanduser
-from urlparse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 from onelogin.api.client import OneLoginClient
 
 ##########################################################################
 # Variables
 ConfigParser.DEFAULTSECT = 'default'
-Config = ConfigParser.ConfigParser()
+Config = ConfigParser()
 Config.read(os.path.join(os.path.abspath(os.path.dirname(__file__)),'settings.ini'))
 
 # The default AWS region to be used
@@ -75,14 +76,14 @@ for accountDetail in accountDetails:
 
 # Get the credentials from the user
 if not email:
-    print "Email: ",
-    email = raw_input()
+    print("Email: ")
+    email = input()
 else:
-    print "Using: %s" % email
+    print("Using: %s" % email)
 password = getpass.getpass()
-print "OTP Code (MFA): ",
-otp_code = raw_input()
-print ''
+print("OTP Code (MFA): ")
+otp_code = input()
+print('')
 
 client = OneLoginClient(onelogin_client_id, onelogin_client_secret, onelogin_region)
 
@@ -138,17 +139,17 @@ for awsrole in awsroles:
 # If there's more than one role, ask the user to pick one; otherwise proceed
 if len(awsroles) > 1:
     i = 0
-    print "Please choose the role you would like to assume:"
+    print("Please choose the role you would like to assume:")
     for awsrole in awsroles:
         account_id=awsrole.split(',')[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
-        print ' [{}]:\t{}\t{}'.format(i, account_dict.get(account_id), awsrole.split(',')[0])
+        print(' [{}]:\t{}\t{}'.format(i, account_dict.get(account_id), awsrole.split(',')[0]))
         i += 1
-    print "Selection: ",
-    selectedroleindex = raw_input()
+    print("Selection: ")
+    selectedroleindex = input()
 
     # Basic sanity check of input
     if int(selectedroleindex) > (len(awsroles) - 1):
-        print 'You selected an invalid role index, please try again'
+        print('You selected an invalid role index, please try again')
         sys.exit(0)
 
     role = awsroles[int(selectedroleindex)].split(',')
@@ -171,7 +172,7 @@ home = expanduser("~")
 filename = home + awsconfigfile
 
 # Read in the existing config file
-config = ConfigParser.RawConfigParser()
+config = RawConfigParser()
 config.read(filename)
 
 config.set('default', 'output', outputformat)
@@ -188,10 +189,10 @@ with open(filename, 'w+') as configfile:
     config.write(configfile)
 
 # Give the user some basic info as to what has just happened
-print '\n\n-------------------------------------------------------------------'
-print 'Your new access key pair has been stored in the AWS configuration file:'
-print '    {0} (under the saml profile).'.format(filename)
-print 'Note that it will expire at {0}.'.format(aws_exp)
-print 'To use this credential, call the AWS CLI with the --profile option'
-print '    (e.g. aws ec2 describe-instances).'
-print '-------------------------------------------------------------------\n\n'
+print('\n\n-------------------------------------------------------------------')
+print('Your new access key pair has been stored in the AWS configuration file:')
+print('    {0} (under the saml profile).'.format(filename))
+print('Note that it will expire at {0}.'.format(aws_exp))
+print('To use this credential, call the AWS CLI with the --profile option')
+print('    (e.g. aws ec2 describe-instances).')
+print('-------------------------------------------------------------------\n\n')
