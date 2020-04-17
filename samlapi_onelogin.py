@@ -19,11 +19,11 @@ from onelogin.api.client import OneLoginClient
 
 ##########################################################################
 # Variables
-ConfigParser.DEFAULTSECT = 'default'
+ConfigParser.samlSECT = 'saml'
 Config = ConfigParser()
 Config.read(os.path.join(os.path.abspath(os.path.dirname(__file__)),'settings.ini'))
 
-# The default AWS region to be used
+# The saml AWS region to be used
 region = Config.get('Settings', 'region')
 
 # OneLogin Client ID
@@ -173,16 +173,18 @@ filename = home + awsconfigfile
 
 # Read in the existing config file
 config = RawConfigParser()
-config.read(filename)
+#config.read(filename)
 
-config.set('default', 'output', outputformat)
-config.set('default', 'region', region)
-config.set('default', 'aws_access_key_id', aws_key)
-config.set('default', 'aws_secret_access_key', aws_sec)
-config.set('default', 'aws_session_token', aws_tok)
+config.add_section('saml')
+
+config.set('saml', 'output', outputformat)
+config.set('saml', 'region', region)
+config.set('saml', 'aws_access_key_id', aws_key)
+config.set('saml', 'aws_secret_access_key', aws_sec)
+config.set('saml', 'aws_session_token', aws_tok)
 
 # boto is special, see https://github.com/boto/boto/issues/2988
-config.set('default', 'aws_security_token', aws_tok)
+config.set('saml', 'aws_security_token', aws_tok)
 
 # Write the updated config file
 with open(filename, 'w+') as configfile:
