@@ -2,6 +2,7 @@
 
 import sys
 import os
+import pathlib
 import boto3
 import requests
 import getpass
@@ -173,7 +174,19 @@ filename = home + awsconfigfile
 
 # Read in the existing config file
 config = RawConfigParser()
-#config.read(filename)
+
+
+config.add_section('default')
+
+config.set('default', 'output', outputformat)
+config.set('default', 'region', region)
+config.set('default', 'aws_access_key_id', aws_key)
+config.set('default', 'aws_secret_access_key', aws_sec)
+config.set('default', 'aws_session_token', aws_tok)
+
+# boto is special, see https://github.com/boto/boto/issues/2988
+config.set('default', 'aws_security_token', aws_tok)
+
 
 config.add_section('saml')
 
@@ -187,6 +200,7 @@ config.set('saml', 'aws_session_token', aws_tok)
 config.set('saml', 'aws_security_token', aws_tok)
 
 # Write the updated config file
+pathlib.Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
 with open(filename, 'w+') as configfile:
     config.write(configfile)
 
