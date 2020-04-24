@@ -77,13 +77,11 @@ for accountDetail in accountDetails:
 
 # Get the credentials from the user
 if not email:
-    print("Email: ")
-    email = input()
+    email = input("Email: ")
 else:
     print("Using: %s" % email)
 password = getpass.getpass()
-print("OTP Code (MFA): ")
-otp_code = input()
+otp_code = input("OTP Code (MFA): ")
 print('')
 
 client = OneLoginClient(onelogin_client_id, onelogin_client_secret, onelogin_region)
