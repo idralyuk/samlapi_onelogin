@@ -169,8 +169,6 @@ for awsrole in awsroles:
             'aws_security_token': aws_tok
         }
     except botocore.exceptions.ClientError as e:
-        print('Problem issuing for {}: {}'.format(awsrole[0], e))
-    except:
         pass
 
 
@@ -182,15 +180,14 @@ if len(awsroles) > 1:
         account_id=awsrole[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
         print(' [{}]:\t{}\t{}'.format(i, account_dict.get(account_id), awsrole[0]))
         i += 1
-    print("Selection: ")
-    selectedroleindex = input()
+    selectedroleindex = int(input("Selection: "))
 
     # Basic sanity check of input
-    if int(selectedroleindex) > (len(awsroles) - 1):
+    if selectedroleindex > (len(awsroles) - 1):
         print('You selected an invalid role index, please try again')
-        sys.exit(0)
+        sys.exit(1)
 
-    selected_account = get_account_name(awsrole)
+    selected_account = get_account_name(awsroles[selectedroleindex])
 else:
     selected_account = get_account_name(awsroles[0])
 
