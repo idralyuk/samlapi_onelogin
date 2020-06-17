@@ -1,28 +1,31 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
+import pathlib
+import botocore
 import boto3
 import requests
 import getpass
-import ConfigParser
+from configparser import ConfigParser
+from configparser import RawConfigParser
 import base64
 import logging
 import xml.etree.ElementTree as ET
 import re
 from bs4 import BeautifulSoup
 from os.path import expanduser
-from urlparse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 from onelogin.api.client import OneLoginClient
 
 ##########################################################################
 # Variables
-ConfigParser.DEFAULTSECT = 'default'
-Config = ConfigParser.ConfigParser()
+ConfigParser.samlSECT = 'saml'
+Config = ConfigParser()
 Config.read(os.path.join(os.path.abspath(os.path.dirname(__file__)),'settings.ini'))
 
-# The default AWS region to be used
+# The saml AWS region to be used
 region = Config.get('Settings', 'region')
 
 # OneLogin Client ID
@@ -50,9 +53,6 @@ awsconfigfile = Config.get('Settings', 'awsconfigfile')
 # If only using locally/for yourself, you can hardcode your login email
 email = Config.get('Settings', 'Email') if Config.has_option('Settings', 'Email') else None
 
-# If only using locally/for yourself, you can hardcode your preferred profile
-aws_profile = Config.get('Settings', 'aws_profile') if Config.has_option('Settings', 'aws_profile') else 'saml'
-
 # Account Name and ID details loaded from setting file
 account_dict = {}
 account_details= Config.get('Settings', 'AccountNameId').split(",")
@@ -71,6 +71,11 @@ accountDetails= Config.get('Settings', 'AccountNameId').split(",")
 for accountDetail in accountDetails:
  accountDict[accountDetail.split("::")[1]] = accountDetail.split("::")[0]
 
+def get_account_name(role):
+    account_id = role[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
+    account_user = role[0].split('/')[1].lower()
+    return '{}-{}'.format(accountDict.get(account_id), account_user)
+
 
 # Uncomment to enable low level debugging
 # logging.basicConfig(level=logging.DEBUG)
@@ -78,14 +83,12 @@ for accountDetail in accountDetails:
 
 # Get the credentials from the user
 if not email:
-    print "Email: ",
-    email = raw_input()
+    email = input("Email: ")
 else:
-    print "Using: %s" % email
+    print("Using: %s" % email)
 password = getpass.getpass()
-print "OTP Code (MFA): ",
-otp_code = raw_input()
-print ''
+otp_code = input("OTP Code (MFA): ")
+print('')
 
 client = OneLoginClient(onelogin_client_id, onelogin_client_secret, onelogin_region)
 
@@ -126,75 +129,83 @@ root = ET.fromstring(base64.b64decode(saml))
 for saml2attribute in root.iter('{urn:oasis:names:tc:SAML:2.0:assertion}Attribute'):
     if (saml2attribute.get('Name') == 'https://aws.amazon.com/SAML/Attributes/Role'):
         for saml2attributevalue in saml2attribute.iter('{urn:oasis:names:tc:SAML:2.0:assertion}AttributeValue'):
-            awsroles.append(saml2attributevalue.text)
+            awsroles.append(saml2attributevalue.text.split(','))
 
 # Note the format of the attribute value should be role_arn,principal_arn, but
 # lots of blogs list it as principal_arn,role_arn so let's reverse if needed
 for awsrole in awsroles:
-    chunks = awsrole.split(',')
-    if'saml-provider' in chunks[0]:
-        newawsrole = chunks[1] + ',' + chunks[0]
+    if'saml-provider' in awsrole[0]:
+        newawsrole = awsrole[1] + ',' + awsrole[0]
         index = awsroles.index(awsrole)
-        awsroles.insert(index, newawsrole)
+        awsroles.insert(index, newawsrole.split(','))
         awsroles.remove(awsrole)
-
-# If there's more than one role, ask the user to pick one; otherwise proceed
-if len(awsroles) > 1:
-    i = 0
-    print "Please choose the role you would like to assume:"
-    for awsrole in awsroles:
-        account_id=awsrole.split(',')[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
-        print ' [{}]:\t{}\t{}'.format(i, account_dict.get(account_id), awsrole.split(',')[0])
-        i += 1
-    print "Selection: ",
-    selectedroleindex = raw_input()
-
-    # Basic sanity check of input
-    if int(selectedroleindex) > (len(awsroles) - 1):
-        print 'You selected an invalid role index, please try again'
-        sys.exit(0)
-
-    role = awsroles[int(selectedroleindex)].split(',')
-else:
-    role = awsroles[0].split(',')
-role_arn = role[0]
-principal_arn = role[1]
-
-# Use the assertion to get an AWS STS token using Assume Role with SAML
-stsclient = boto3.client('sts')
-token = stsclient.assume_role_with_saml(RoleArn=role_arn, PrincipalArn=principal_arn, SAMLAssertion=saml, DurationSeconds=durationseconds)
-creds = token['Credentials']
-aws_key = creds['AccessKeyId']
-aws_sec = creds['SecretAccessKey']
-aws_tok = creds['SessionToken']
-aws_exp = creds['Expiration']
 
 # Write the AWS STS token into the AWS credential file
 home = expanduser("~")
 filename = home + awsconfigfile
 
 # Read in the existing config file
-config = ConfigParser.RawConfigParser()
+config = RawConfigParser()
 config.read(filename)
 
-config.set(aws_profile, 'output', outputformat)
-config.set(aws_profile, 'region', region)
-config.set(aws_profile, 'aws_access_key_id', aws_key)
-config.set(aws_profile, 'aws_secret_access_key', aws_sec)
-config.set(aws_profile, 'aws_session_token', aws_tok)
+stsclient = boto3.client('sts')
+for awsrole in awsroles:
+    try:
+        role_arn = awsrole[0]
+        principal_arn = awsrole[1]
+        token = stsclient.assume_role_with_saml(RoleArn=role_arn, PrincipalArn=principal_arn, SAMLAssertion=saml, DurationSeconds=durationseconds)
+        creds = token['Credentials']
+        aws_key = creds['AccessKeyId']
+        aws_sec = creds['SecretAccessKey']
+        aws_tok = creds['SessionToken']
+        aws_exp = creds['Expiration']
 
-# boto is special, see https://github.com/boto/boto/issues/2988
-config.set('saml', 'aws_security_token', aws_tok)
+        config[get_account_name(awsrole)] = {
+            'output': outputformat,
+            'region': region,
+            'aws_access_key_id': aws_key,
+            'aws_secret_access_key': aws_sec,
+            'aws_session_token': aws_tok,
+            'aws_security_token': aws_tok
+        }
+    except botocore.exceptions.ClientError as e:
+        pass
+
+
+# If there's more than one role, ask the user to pick one; otherwise proceed
+if len(awsroles) > 1:
+    i = 0
+    print("Please choose the role you would like to be default:")
+    for awsrole in awsroles:
+        account_id=awsrole[0].split('/')[0].split(':role')[0].split('arn:aws:iam::')[1]
+        print(' [{}]:\t{}\t{}'.format(i, account_dict.get(account_id), awsrole[0]))
+        i += 1
+    selectedroleindex = int(input("Selection: "))
+
+    # Basic sanity check of input
+    if selectedroleindex > (len(awsroles) - 1):
+        print('You selected an invalid role index, please try again')
+        sys.exit(1)
+
+    selected_account = get_account_name(awsroles[selectedroleindex])
+else:
+    selected_account = get_account_name(awsroles[0])
+
+config['saml'] = config[selected_account]
+config['default'] = config[selected_account]
 
 # Write the updated config file
+pathlib.Path(os.path.dirname(filename)).mkdir(parents=True, exist_ok=True)
 with open(filename, 'w+') as configfile:
     config.write(configfile)
 
 # Give the user some basic info as to what has just happened
-print '\n\n-------------------------------------------------------------------'
-print 'Your new access key pair has been stored in the AWS configuration file:'
-print '    {0} (under the {1} profile).'.format(filename, aws_profile)
-print 'Note that it will expire at {0}.'.format(aws_exp)
-print 'To use this credential, call the AWS CLI with the --profile option'
-print '    (e.g. aws ec2 describe-instances).'
-print '-------------------------------------------------------------------\n\n'
+print('\n\n-------------------------------------------------------------------')
+print('Your new access key pair has been stored in the AWS configuration file:')
+print('    {0} (under the saml profile).'.format(filename))
+print('Note that it will expire at {0}.'.format(aws_exp))
+print('To use this credential, call the AWS CLI:')
+print('    (e.g. aws ec2 describe-instances).')
+print('Additional profiles were also written for all the above accounts to a profile by their name:')
+print('    (e.g. aws ec2 --profile wiser-prod describe-instances).')
+print('-------------------------------------------------------------------\n\n')

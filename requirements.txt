@@ -2,5 +2,5 @@ boto3
 onelogin
 python-dateutil
 requests
-BeautifulSoup
+BeautifulSoup4
 Bs4
