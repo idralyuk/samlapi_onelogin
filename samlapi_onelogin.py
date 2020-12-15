@@ -189,7 +189,7 @@ config.set(aws_profile, 'aws_session_token', aws_tok)
 # boto is special, see https://github.com/boto/boto/issues/2988
 config.set(aws_profile, 'aws_security_token', aws_tok)
 
-if not config.defaults():
+if not config.defaults() or not 'defaults_script' in config.defaults():
     config.set(ConfigParser.DEFAULTSECT, 'defaults_script', 'samlapi_onelogin.py')
 
 if config.defaults()['defaults_script'] == 'samlapi_onelogin.py':
